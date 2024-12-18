@@ -22,7 +22,7 @@ with open(csv_file, mode='a', newline='') as file:
     # Check if the file is empty and write the header row if it is
     file.seek(0, 2)  # Move the pointer to the end of the file
     if file.tell() == 0:
-        csv_writer.writerow(["Timestamp", "RFID Tag", "Lap Count", "Lap Time (mm:ss)"])
+        csv_writer.writerow(["Timestamp", "RFID Tag", "Lap Count", "Lap Time (mm:ss)", "Split Time (mm:ss)"])
 
     print(f"Saving data to {csv_file}...")
     
@@ -37,19 +37,25 @@ with open(csv_file, mode='a', newline='') as file:
                 # Check if the line is in the expected format
                 if "," in line:
                     try:
-                        # Assuming Arduino sends data in the format: tag_id,lap_count,lap_time
-                        tag_id, lap_count, lap_time = line.split(",")
+                        # Assuming Arduino sends data in the format: tag_id,lap_count,lap_time,split_time
+                        tag_id, lap_count, lap_time, split_time = line.split(",")
                         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         
                         # Convert lap time from milliseconds to minutes and seconds
                         lap_time_ms = float(lap_time)  # Ensure it's a float
-                        minutes = int(lap_time_ms // 60000)  # Convert ms to minutes
-                        seconds = (lap_time_ms % 60000) / 1000  # Convert remaining ms to seconds
-                        lap_time_formatted = f"{minutes:02}:{seconds:06.3f}"  # Format as mm:ss.sss
+                        lap_minutes = int(lap_time_ms // 60000)  # Convert ms to minutes
+                        lap_seconds = (lap_time_ms % 60000) / 1000  # Convert remaining ms to seconds
+                        lap_time_formatted = f"{lap_minutes:02}:{lap_seconds:06.3f}"  # Format as mm:ss.sss
+                        
+                        # Convert split time from milliseconds to minutes and seconds
+                        split_time_ms = float(split_time)  # Ensure it's a float
+                        split_minutes = int(split_time_ms // 60000)  # Convert ms to minutes
+                        split_seconds = (split_time_ms % 60000) / 1000  # Convert remaining ms to seconds
+                        split_time_formatted = f"{split_minutes:02}:{split_seconds:06.3f}"  # Format as mm:ss.sss
                         
                         # Write the data to the CSV file
-                        csv_writer.writerow([timestamp, tag_id, lap_count, lap_time_formatted])
-                        print(f"Data written to CSV: {timestamp}, {tag_id}, {lap_count}, {lap_time_formatted}")
+                        csv_writer.writerow([timestamp, tag_id, lap_count, lap_time_formatted, split_time_formatted])
+                        print(f"Data written to CSV: {timestamp}, {tag_id}, {lap_count}, {lap_time_formatted}, {split_time_formatted}")
                     except ValueError:
                         print(f"Invalid data format: {line}")
                 else:
