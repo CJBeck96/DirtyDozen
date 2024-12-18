@@ -28,7 +28,6 @@ struct Racer {
     unsigned long startTime;
     unsigned long lastLapTime;
     unsigned long splitTime;
-    unsigned long lapTime;
 };
 
 Racer racers[maxRacers];
@@ -89,7 +88,6 @@ void processRFID(String uid) {
         racers[racerIndex].startTime = currentTime;
         racers[racerIndex].lastLapTime = currentTime;
         racers[racerIndex].splitTime = 0;
-        racers[racerIndex].lapTime = 0;
 
         Serial.println("New Racer Detected: " + uid);
     }
@@ -97,9 +95,14 @@ void processRFID(String uid) {
     // Update lap count and times
     racers[racerIndex].lapCount++;
     unsigned long lapTime = currentTime - racers[racerIndex].lastLapTime;
-    unsigned long splitTime = (racers[racerIndex].lapCount > 1) ? (lapTime - racers[racerIndex].lapTime) : 0;
-    racers[racerIndex].lapTime = lapTime;
-    racers[racerIndex].splitTime = splitTime;
+    unsigned long splitTime = 0;
+
+    // Calculate split time (time between the current lap and the previous lap for the same racer)
+    if (racers[racerIndex].lapCount > 1) {
+        splitTime = lapTime - racers[racerIndex].lastLapTime;  // Correct calculation for split time
+    }
+    
+    // Update last lap time for the racer
     racers[racerIndex].lastLapTime = currentTime;
 
     // Display on LCD
