@@ -27,7 +27,7 @@ struct Racer {
     int lapCount;
     unsigned long startTime;
     unsigned long lastLapTime;
-    unsigned long previousLapTime;  // To track the previous lap's time
+    unsigned long previousLapTime;  // To track the previous lap's time for split calculation
     unsigned long splitTime;        // Time difference between laps
 };
 
@@ -87,7 +87,7 @@ void processRFID(String uid) {
         racers[racerIndex].uid = uid;
         racers[racerIndex].lapCount = 0;
         racers[racerIndex].startTime = currentTime;
-        racers[racerIndex].lastLapTime = currentTime;
+        racers[racerIndex].lastLapTime = currentTime;  // Initialize with the start time
         racers[racerIndex].previousLapTime = currentTime;  // Initialize previous lap time
         racers[racerIndex].splitTime = 0;
 
@@ -98,15 +98,14 @@ void processRFID(String uid) {
     racers[racerIndex].lapCount++;
     unsigned long lapTime = currentTime - racers[racerIndex].lastLapTime;
 
-    // Handle millis overflow: If current time is smaller than previous lap time, adjust
+    // Calculate the split time (only after the first lap)
     unsigned long splitTime = 0;
     if (racers[racerIndex].lapCount > 1) {
-        // Split time is the difference between current lap and previous lap
         splitTime = currentTime - racers[racerIndex].previousLapTime;
     }
 
     // Update the previous lap time and last lap time for the next lap
-    racers[racerIndex].previousLapTime = currentTime;
+    racers[racerIndex].previousLapTime = racers[racerIndex].lastLapTime;
     racers[racerIndex].lastLapTime = currentTime;
 
     // Display on LCD
