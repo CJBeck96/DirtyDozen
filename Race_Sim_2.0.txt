@@ -101,17 +101,11 @@ void processRFID(String uid) {
     // Handle millis overflow: If current time is smaller than previous lap time, adjust
     unsigned long splitTime = 0;
     if (racers[racerIndex].lapCount > 1) {
-        // If an overflow has occurred, adjust the split time calculation
-        if (currentTime < racers[racerIndex].previousLapTime) {
-            // Millis overflow occurred, adjust calculation
-            splitTime = (0xFFFFFFFF - racers[racerIndex].previousLapTime) + currentTime;
-        } else {
-            // Normal calculation
-            splitTime = lapTime;
-        }
+        // Split time is the difference between current lap and previous lap
+        splitTime = currentTime - racers[racerIndex].previousLapTime;
     }
 
-    // Update previous lap time and last lap time
+    // Update the previous lap time and last lap time for the next lap
     racers[racerIndex].previousLapTime = currentTime;
     racers[racerIndex].lastLapTime = currentTime;
 
