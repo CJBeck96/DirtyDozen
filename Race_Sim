@@ -1,0 +1,148 @@
+#include <LiquidCrystal.h>
+
+// Pin Definitions for LCD
+#define LCD_RS 4
+#define LCD_E 6
+#define LCD_D4 10
+#define LCD_D5 11
+#define LCD_D6 12
+#define LCD_D7 13
+
+// Create LCD object
+LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+
+// Simulated RFID UIDs
+String simulatedRFIDs[] = {
+    "UID1: 0x04 0xA7 0x85 0x92",
+    "UID2: 0x12 0x34 0x56 0x78",
+    "UID3: 0xA1 0xB2 0xC3 0xD4"
+};
+
+const int maxRacers = 10;  // Maximum number of racers
+const int totalLaps = 30;  // Total laps required per racer
+
+// Data Structures
+struct Racer {
+    String uid;
+    int lapCount;
+    unsigned long startTime;
+    unsigned long lastLapTime;
+};
+
+Racer racers[maxRacers];
+int racerCount = 0;
+
+unsigned long lastSimulationTime = 0;
+int simulatedTagIndex = 0;
+
+void setup() {
+    // Initialize serial communication
+    Serial.begin(9600);
+
+    // Initialize LCD
+    lcd.begin(16, 2);
+    lcd.print("RFID Lap Logger");
+    delay(2000);
+    lcd.clear();
+    lcd.print("Ready...");
+    delay(1000);
+    lcd.clear();
+}
+
+void loop() {
+    // Simulate reading a tag every 2 seconds
+    if (millis() - lastSimulationTime > 2000) {
+        lastSimulationTime = millis();
+
+        // Get the simulated RFID UID
+        String currentUID = simulatedRFIDs[simulatedTagIndex];
+
+        // Simulate tag cycling
+        simulatedTagIndex++;
+        if (simulatedTagIndex >= sizeof(simulatedRFIDs) / sizeof(simulatedRFIDs[0])) {
+            simulatedTagIndex = 0; // Loop back to the first tag
+        }
+
+        // Process the tag
+        processRFID(currentUID);
+    }
+}
+
+// Function to process each RFID tag
+void processRFID(String uid) {
+    unsigned long currentTime = millis();
+    int racerIndex = findRacer(uid);
+
+    // If racer is new, add them to the array
+    if (racerIndex == -1) {
+        if (racerCount >= maxRacers) {
+            Serial.println("Error: Maximum racers reached!");
+            return;
+        }
+
+        racerIndex = racerCount++;
+        racers[racerIndex].uid = uid;
+        racers[racerIndex].lapCount = 0;
+        racers[racerIndex].startTime = currentTime;
+        racers[racerIndex].lastLapTime = currentTime;
+
+        Serial.println("New Racer Detected: " + uid);
+    }
+
+    // Update lap count and times
+    racers[racerIndex].lapCount++;
+    unsigned long lapTime = currentTime - racers[racerIndex].lastLapTime;
+    racers[racerIndex].lastLapTime = currentTime;
+
+    // Display on LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Tag: ");
+    lcd.print(uid.substring(0, 6)); // Display part of the UID
+    lcd.setCursor(0, 1);
+    lcd.print("Lap: ");
+    lcd.print(racers[racerIndex].lapCount);
+    lcd.print("/");
+    lcd.print(totalLaps);
+
+    // Log to Serial in CSV format: UID, lapCount, lapTime
+    unsigned long elapsedTime = currentTime - racers[racerIndex].startTime;
+    Serial.print(uid);               // UID
+    Serial.print(",");               // Separator
+    Serial.print(racers[racerIndex].lapCount);  // Lap Count
+    Serial.print(",");               // Separator
+    Serial.println(lapTime / 1000.0);  // Lap Time (in seconds)
+
+    // Check if the racer has completed the race
+    if (racers[racerIndex].lapCount >= totalLaps) {
+        Serial.println("Racer " + uid + " has completed the race!");
+    }
+
+    // Check if all racers have completed their laps
+    if (allRacersFinished()) {
+        lcd.clear();
+        lcd.print("Race Complete!");
+        Serial.println("All Racers Finished!");
+        while (true); // Stop the program
+    }
+}
+
+// Function to find a racer by UID
+int findRacer(String uid) {
+    for (int i = 0; i < racerCount; i++) {
+        if (racers[i].uid == uid) {
+            return i;
+        }
+    }
+    return -1; // Not found
+}
+
+// Function to check if all racers have finished
+bool allRacersFinished() {
+    for (int i = 0; i < racerCount; i++) {
+        if (racers[i].lapCount < totalLaps) {
+            return false;
+        }
+    }
+    return true;
+}
