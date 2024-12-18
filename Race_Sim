@@ -1,3 +1,4 @@
+
 #include <LiquidCrystal.h>
 
 // Pin Definitions for LCD
@@ -27,6 +28,8 @@ struct Racer {
     int lapCount;
     unsigned long startTime;
     unsigned long lastLapTime;
+    unsigned long splitTime;
+    unsigned long lapTime;
 };
 
 Racer racers[maxRacers];
@@ -50,8 +53,9 @@ void setup() {
 }
 
 void loop() {
-    // Simulate reading a tag every 2 seconds
-    if (millis() - lastSimulationTime > 2000) {
+    // Simulate reading a tag with varying delays (variance in lap times)
+    unsigned long delayTime = random(1000, 4000); // Random delay between 1 and 4 seconds
+    if (millis() - lastSimulationTime > delayTime) {
         lastSimulationTime = millis();
 
         // Get the simulated RFID UID
@@ -85,6 +89,8 @@ void processRFID(String uid) {
         racers[racerIndex].lapCount = 0;
         racers[racerIndex].startTime = currentTime;
         racers[racerIndex].lastLapTime = currentTime;
+        racers[racerIndex].splitTime = 0;
+        racers[racerIndex].lapTime = 0;
 
         Serial.println("New Racer Detected: " + uid);
     }
@@ -92,6 +98,9 @@ void processRFID(String uid) {
     // Update lap count and times
     racers[racerIndex].lapCount++;
     unsigned long lapTime = currentTime - racers[racerIndex].lastLapTime;
+    unsigned long splitTime = currentTime - racers[racerIndex].lastLapTime;
+    racers[racerIndex].lapTime = lapTime;
+    racers[racerIndex].splitTime = splitTime;
     racers[racerIndex].lastLapTime = currentTime;
 
     // Display on LCD
@@ -105,13 +114,17 @@ void processRFID(String uid) {
     lcd.print("/");
     lcd.print(totalLaps);
 
-    // Log to Serial in CSV format: UID, lapCount, lapTime
+    // Log to Serial in CSV format: UID, lapCount, lapTime, splitTime, totalElapsedTime
     unsigned long elapsedTime = currentTime - racers[racerIndex].startTime;
-    Serial.print(uid);               // UID
-    Serial.print(",");               // Separator
-    Serial.print(racers[racerIndex].lapCount);  // Lap Count
-    Serial.print(",");               // Separator
-    Serial.println(lapTime / 1000.0);  // Lap Time (in seconds)
+    Serial.print(uid);                 // UID
+    Serial.print(",");                 // Separator
+    Serial.print(racers[racerIndex].lapCount); // Lap Count
+    Serial.print(",");                 // Separator
+    Serial.print(lapTime / 1000.0);    // Lap Time (seconds)
+    Serial.print(",");                 // Separator
+    Serial.print(splitTime / 1000.0);  // Split Time (seconds)
+    Serial.print(",");                 // Separator
+    Serial.println(elapsedTime / 1000.0); // Total Elapsed Time (seconds)
 
     // Check if the racer has completed the race
     if (racers[racerIndex].lapCount >= totalLaps) {
