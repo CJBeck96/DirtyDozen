@@ -97,7 +97,7 @@ void processRFID(String uid) {
     // Update lap count and times
     racers[racerIndex].lapCount++;
     unsigned long lapTime = currentTime - racers[racerIndex].lastLapTime;
-    unsigned long splitTime = currentTime - racers[racerIndex].lastLapTime;
+    unsigned long splitTime = (racers[racerIndex].lapCount > 1) ? (lapTime - racers[racerIndex].lapTime) : 0;
     racers[racerIndex].lapTime = lapTime;
     racers[racerIndex].splitTime = splitTime;
     racers[racerIndex].lastLapTime = currentTime;
