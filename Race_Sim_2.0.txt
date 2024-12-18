@@ -96,11 +96,18 @@ void processRFID(String uid) {
     // Update lap count and times
     racers[racerIndex].lapCount++;
     unsigned long lapTime = currentTime - racers[racerIndex].lastLapTime;
+
     unsigned long splitTime = 0;
     
     // Calculate split time only if it's not the first lap
     if (racers[racerIndex].lapCount > 1) {
-        splitTime = lapTime - racers[racerIndex].previousLapTime;  // Current lap time - previous lap time
+        // Ensure there's no overflow and the calculation is logical
+        splitTime = lapTime - racers[racerIndex].previousLapTime;  
+
+        // Check if splitTime is not negative, as this would indicate a logical error
+        if (splitTime > lapTime) {
+            splitTime = 0; // Reset split time if it's invalid
+        }
     }
 
     // Update the previous lap time for the next split calculation
