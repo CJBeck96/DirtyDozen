@@ -15,6 +15,9 @@ except Exception as e:
     print(f"Error connecting to Arduino: {e}")
     exit()
 
+# Dictionary to store the previous lap times and other racer data
+racers_data = {}
+
 # Open (or create) the CSV file for appending data
 with open(csv_file, mode='a', newline='') as file:
     csv_writer = csv.writer(file)
@@ -26,9 +29,6 @@ with open(csv_file, mode='a', newline='') as file:
 
     print(f"Saving data to {csv_file}...")
 
-    # Store previous lap times for each racer to calculate splits
-    previous_lap_times = {}
-
     while True:
         try:
             # Read data from the Arduino
@@ -38,7 +38,7 @@ with open(csv_file, mode='a', newline='') as file:
                 print(f"Received: {line}")  # Debugging output to confirm data is received
                 
                 # Check if the line is in the expected format
-                if line.count(",") == 3:  # Expecting exactly four fields (no split time from Arduino)
+                if line.count(",") == 4:  # Expecting exactly five fields
                     try:
                         # Assuming Arduino sends data in the format: UID,lapCount,lapTime,totalElapsedTime
                         tag_id, lap_count, lap_time, total_elapsed_time = line.split(",")
@@ -52,24 +52,32 @@ with open(csv_file, mode='a', newline='') as file:
 
                         lap_time_formatted = format_time(lap_time)
                         total_elapsed_formatted = format_time(total_elapsed_time)
+                        
+                        # Calculate split time
+                        split_time_formatted = "N/A"
+                        if tag_id in racers_data:
+                            # Calculate split time only if there are previous laps
+                            previous_lap_time = racers_data[tag_id]['previous_lap_time']
+                            split_time = float(lap_time) - previous_lap_time
+                            if split_time > 0:  # Make sure it's positive
+                                split_time_formatted = format_time(split_time)
+                        
+                        # Update racer data
+                        racers_data[tag_id] = {
+                            'previous_lap_time': float(lap_time),
+                            'lap_count': int(lap_count),
+                            'total_elapsed_time': float(total_elapsed_time)
+                        }
 
-                        # Calculate split time (if this is not the first lap)
-                        split_time_formatted = "00:00.000"  # Default for the first lap
-                        if tag_id in previous_lap_times:
-                            previous_lap_time = previous_lap_times[tag_id]
-                            split_time_seconds = float(lap_time) - previous_lap_time
-                            split_time_formatted = format_time(split_time_seconds)
-                        
-                        # Update the previous lap time for the next lap
-                        previous_lap_times[tag_id] = float(lap_time)
-                        
                         # Write the data to the CSV file
-                        csv_writer.writerow([timestamp, 
-                                             tag_id, 
-                                             int(lap_count), 
-                                             lap_time_formatted, 
-                                             split_time_formatted, 
-                                             total_elapsed_formatted])
+                        csv_writer.writerow([
+                            timestamp, 
+                            tag_id, 
+                            int(lap_count), 
+                            lap_time_formatted, 
+                            split_time_formatted, 
+                            total_elapsed_formatted
+                        ])
                         print(f"Data written to CSV: {timestamp}, {tag_id}, {lap_count}, {lap_time_formatted}, {split_time_formatted}, {total_elapsed_formatted}")
                     except ValueError:
                         print(f"Invalid data format: {line}")
