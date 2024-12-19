@@ -102,14 +102,19 @@ void processRFID(String uid) {
     // Update lap count
     racers[racerIndex].lapCount++;
 
+    // Update previous lap time only after the first lap
+    if (racers[racerIndex].lapCount > 1) {
+        racers[racerIndex].previousLapTime = racers[racerIndex].currentLapTime;
+    }
+
     // Calculate current lap time
     racers[racerIndex].currentLapTime = currentTime - racers[racerIndex].lastLapTime;
 
-    // Calculate split time (difference between current and previous lap times)
-    if (racers[racerIndex].lapCount > 1) { // Only calculate split after the first lap
+    // Calculate split time only if previousLapTime is valid
+    if (racers[racerIndex].lapCount > 1) {
         racers[racerIndex].splitTime = racers[racerIndex].currentLapTime - racers[racerIndex].previousLapTime;
     } else {
-        racers[racerIndex].splitTime = 0; // No split on the first lap
+        racers[racerIndex].splitTime = 0;
     }
 
     // Debugging output for variable tracking
@@ -124,8 +129,7 @@ void processRFID(String uid) {
     Serial.print(", SplitTime=");
     Serial.println(racers[racerIndex].splitTime);
 
-    // Update previous lap time and last lap time
-    racers[racerIndex].previousLapTime = racers[racerIndex].currentLapTime;
+    // Update last lap time
     racers[racerIndex].lastLapTime = currentTime;
 
     // Display on LCD
