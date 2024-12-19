@@ -37,8 +37,11 @@ with open(csv_file, mode='a', newline='') as file:
             if line:
                 print(f"Received: {line}")  # Debugging output to confirm data is received
                 
-                # Check if the line is in the expected format
-                if line.count(",") == 4:  # Expecting exactly five fields
+                # Check how many commas are in the line (this helps debug the format issue)
+                print(f"Comma count: {line.count(',')}")
+                
+                # Check if the line is in the expected format (UID, lapCount, lapTime, totalElapsedTime)
+                if line.count(",") == 3:  # Expecting exactly three commas (4 fields)
                     try:
                         # Assuming Arduino sends data in the format: UID,lapCount,lapTime,totalElapsedTime
                         tag_id, lap_count, lap_time, total_elapsed_time = line.split(",")
@@ -92,4 +95,3 @@ with open(csv_file, mode='a', newline='') as file:
             break
         except Exception as e:
             print(f"Error: {e}")
-
