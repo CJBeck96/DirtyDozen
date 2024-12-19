@@ -112,13 +112,9 @@ void processRFID(String uid) {
 
     // Update split time only if there was a previous lap
     if (racers[racerIndex].lapCount > 1) {
-        if (racers[racerIndex].currentLapTime >= racers[racerIndex].previousLapTime) {
-            racers[racerIndex].splitTime = racers[racerIndex].currentLapTime - racers[racerIndex].previousLapTime;
-        } else {
-            racers[racerIndex].splitTime = 0; // Safety guard
-        }
+        racers[racerIndex].splitTime = abs(racers[racerIndex].currentLapTime - racers[racerIndex].previousLapTime);
     } else {
-        racers[racerIndex].splitTime = 0;
+        racers[racerIndex].splitTime = 0; // No split on the first lap
     }
 
     // Update last lap time
