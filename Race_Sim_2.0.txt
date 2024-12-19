@@ -27,8 +27,8 @@ struct Racer {
     int lapCount;
     unsigned long startTime;
     unsigned long lastLapTime;
-    unsigned long currentLapTime;
     unsigned long previousLapTime;
+    unsigned long currentLapTime;
     unsigned long splitTime;
 };
 
@@ -102,7 +102,7 @@ void processRFID(String uid) {
     // Update lap count
     racers[racerIndex].lapCount++;
 
-    // Update previous lap time only after the first lap
+    // Store the previous lap time before updating lastLapTime
     if (racers[racerIndex].lapCount > 1) {
         racers[racerIndex].previousLapTime = racers[racerIndex].currentLapTime;
     }
@@ -110,24 +110,16 @@ void processRFID(String uid) {
     // Calculate current lap time
     racers[racerIndex].currentLapTime = currentTime - racers[racerIndex].lastLapTime;
 
-    // Calculate split time only if previousLapTime is valid
+    // Update split time only if there was a previous lap
     if (racers[racerIndex].lapCount > 1) {
-        racers[racerIndex].splitTime = racers[racerIndex].currentLapTime - racers[racerIndex].previousLapTime;
+        if (racers[racerIndex].currentLapTime >= racers[racerIndex].previousLapTime) {
+            racers[racerIndex].splitTime = racers[racerIndex].currentLapTime - racers[racerIndex].previousLapTime;
+        } else {
+            racers[racerIndex].splitTime = 0; // Safety guard
+        }
     } else {
         racers[racerIndex].splitTime = 0;
     }
-
-    // Debugging output for variable tracking
-    Serial.print("DEBUG: CurrentTime=");
-    Serial.print(currentTime);
-    Serial.print(", LastLapTime=");
-    Serial.print(racers[racerIndex].lastLapTime);
-    Serial.print(", CurrentLapTime=");
-    Serial.print(racers[racerIndex].currentLapTime);
-    Serial.print(", PreviousLapTime=");
-    Serial.print(racers[racerIndex].previousLapTime);
-    Serial.print(", SplitTime=");
-    Serial.println(racers[racerIndex].splitTime);
 
     // Update last lap time
     racers[racerIndex].lastLapTime = currentTime;
