@@ -27,8 +27,9 @@ struct Racer {
     int lapCount;
     unsigned long startTime;
     unsigned long lastLapTime;
-    unsigned long lapTime;
+    unsigned long currentLapTime;
     unsigned long previousLapTime;
+    unsigned long splitTime;
 };
 
 Racer racers[maxRacers];
@@ -89,31 +90,27 @@ void processRFID(String uid) {
         racers[racerIndex].startTime = currentTime;
         racers[racerIndex].lastLapTime = currentTime;
         racers[racerIndex].previousLapTime = 0;
+        racers[racerIndex].currentLapTime = 0;
+        racers[racerIndex].splitTime = 0;
 
         Serial.println("New Racer Detected: " + uid);
     }
 
     // Update lap count and times
     racers[racerIndex].lapCount++;
-    unsigned long lapTime = currentTime - racers[racerIndex].lastLapTime;
 
-    unsigned long splitTime = 0;
-    
-    // Calculate split time only if it's not the first lap
-    if (racers[racerIndex].lapCount > 1) {
-        // Ensure there's no overflow and the calculation is logical
-        splitTime = lapTime - racers[racerIndex].previousLapTime;  
+    // Calculate current lap time
+    racers[racerIndex].currentLapTime = currentTime - racers[racerIndex].lastLapTime;
 
-        // Check if splitTime is not negative, as this would indicate a logical error
-        if (splitTime > lapTime) {
-            splitTime = 0; // Reset split time if it's invalid
-        }
+    // Calculate split time (difference between current and previous lap times)
+    if (racers[racerIndex].lapCount > 1) { // Only calculate split after the first lap
+        racers[racerIndex].splitTime = racers[racerIndex].currentLapTime - racers[racerIndex].previousLapTime;
+    } else {
+        racers[racerIndex].splitTime = 0; // No split on the first lap
     }
 
-    // Update the previous lap time for the next split calculation
-    racers[racerIndex].previousLapTime = lapTime;
-
-    // Update the last lap time
+    // Update previous lap time and last lap time
+    racers[racerIndex].previousLapTime = racers[racerIndex].currentLapTime;
     racers[racerIndex].lastLapTime = currentTime;
 
     // Display on LCD
@@ -124,18 +121,18 @@ void processRFID(String uid) {
     lcd.setCursor(0, 1);
     lcd.print("Lap: ");
     lcd.print(racers[racerIndex].lapCount);
-    lcd.print("/ ");
+    lcd.print("/");
     lcd.print(totalLaps);
 
-    // Log to Serial in CSV format: UID, lapCount, lapTime, splitTime, totalElapsedTime
+    // Log to Serial in CSV format: UID, lapCount, currentLapTime, splitTime, totalElapsedTime
     unsigned long elapsedTime = currentTime - racers[racerIndex].startTime;
     Serial.print(uid);                 // UID
     Serial.print(",");                 // Separator
     Serial.print(racers[racerIndex].lapCount); // Lap Count
     Serial.print(",");                 // Separator
-    Serial.print(lapTime / 1000.0);    // Lap Time (seconds)
+    Serial.print(racers[racerIndex].currentLapTime / 1000.0); // Lap Time (seconds)
     Serial.print(",");                 // Separator
-    Serial.print(splitTime / 1000.0);  // Split Time (seconds)
+    Serial.print(racers[racerIndex].splitTime / 1000.0);  // Split Time (seconds)
     Serial.print(",");                 // Separator
     Serial.println(elapsedTime / 1000.0); // Total Elapsed Time (seconds)
 
