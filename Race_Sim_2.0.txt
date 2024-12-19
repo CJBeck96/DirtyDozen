@@ -50,6 +50,9 @@ void setup() {
     lcd.print("Ready...");
     delay(1000);
     lcd.clear();
+
+    // Debugging header
+    Serial.println("UID,LapCount,CurrentLapTime,SplitTime,ElapsedTime");
 }
 
 void loop() {
@@ -96,7 +99,7 @@ void processRFID(String uid) {
         Serial.println("New Racer Detected: " + uid);
     }
 
-    // Update lap count and times
+    // Update lap count
     racers[racerIndex].lapCount++;
 
     // Calculate current lap time
@@ -108,6 +111,18 @@ void processRFID(String uid) {
     } else {
         racers[racerIndex].splitTime = 0; // No split on the first lap
     }
+
+    // Debugging output for variable tracking
+    Serial.print("DEBUG: CurrentTime=");
+    Serial.print(currentTime);
+    Serial.print(", LastLapTime=");
+    Serial.print(racers[racerIndex].lastLapTime);
+    Serial.print(", CurrentLapTime=");
+    Serial.print(racers[racerIndex].currentLapTime);
+    Serial.print(", PreviousLapTime=");
+    Serial.print(racers[racerIndex].previousLapTime);
+    Serial.print(", SplitTime=");
+    Serial.println(racers[racerIndex].splitTime);
 
     // Update previous lap time and last lap time
     racers[racerIndex].previousLapTime = racers[racerIndex].currentLapTime;
@@ -169,4 +184,3 @@ bool allRacersFinished() {
     }
     return true;
 }
-
