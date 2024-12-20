@@ -1,5 +1,3 @@
-#include <SPI.h>
-#include <MFRC522.h>
 #include <LiquidCrystal.h>
 
 // Pin Definitions for LCD
@@ -10,22 +8,24 @@
 #define LCD_D6 12
 #define LCD_D7 13
 
-// Pin Definitions for RFID Reader
-#define RST_PIN 9
-#define SS_PIN 8
-
 // Pin Definitions for Buzzer and Button
 #define BUZZER_PIN 7
-#define BUTTON_PIN 5
+#define BUTTON_PIN 2
 
-// Create LCD and RFID objects
+// Create LCD object
 LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
-MFRC522 rfid(SS_PIN, RST_PIN);
 
-// Racer Data
+// Simulated RFID UIDs
+String simulatedRFIDs[] = {
+    "UID1: 0x04 0xA7 0x85 0x92",
+    "UID2: 0x12 0x34 0x56 0x78",
+    "UID3: 0xA1 0xB2 0xC3 0xD4"
+};
+
 const int maxRacers = 10;  // Maximum number of racers
 const int totalLaps = 30;  // Total laps required per racer
 
+// Data Structures
 struct Racer {
     String uid;
     int lapCount;
@@ -36,7 +36,15 @@ struct Racer {
 
 Racer racers[maxRacers];
 int racerCount = 0;
-int currentRacerIndex = 0;
+int currentRacerIndex = 0;  // For cycling through racers' stats
+
+// Timing for Simulation
+unsigned long lastSimulationTime = 0;
+unsigned long simulationInterval = 20000; // Simulated lap time in milliseconds
+int simulatedTagIndex = 0;
+
+// Button State
+unsigned long buttonPressTime = 0;
 bool buttonHeld = false;
 
 void setup() {
@@ -52,44 +60,35 @@ void setup() {
     delay(1000);
     lcd.clear();
 
-    // Initialize RFID Reader
-    SPI.begin();
-    rfid.PCD_Init();
-    Serial.println("RFID Reader Initialized");
-
     // Initialize Buzzer and Button
     pinMode(BUZZER_PIN, OUTPUT);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
 }
 
 void loop() {
-    // Check button state
-    if (digitalRead(BUTTON_PIN) == LOW) {
-        handleButtonPress();
-    } else {
-        buttonHeld = false; // Reset button held state when released
-    }
+    // Simulate RFID Tags
+    simulateRFID();
 
-    // Look for new cards
-    if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
-        return; // No card found
-    }
+    // Handle Button Press
+    handleButtonPress();
+}
 
-    // Get UID
-    String uid = "";
-    for (byte i = 0; i < rfid.uid.size; i++) {
-        uid += String(rfid.uid.uidByte[i], HEX);
-        if (i < rfid.uid.size - 1) {
-            uid += ":";
+void simulateRFID() {
+    if (millis() - lastSimulationTime > simulationInterval) {
+        lastSimulationTime = millis();
+
+        // Get the simulated RFID UID
+        String currentUID = simulatedRFIDs[simulatedTagIndex];
+
+        // Simulate tag cycling
+        simulatedTagIndex++;
+        if (simulatedTagIndex >= sizeof(simulatedRFIDs) / sizeof(simulatedRFIDs[0])) {
+            simulatedTagIndex = 0; // Loop back to the first tag
         }
+
+        // Process the tag
+        processRFID(currentUID);
     }
-    uid.toUpperCase();
-
-    // Process the tag
-    processRFID(uid);
-
-    // Halt the RFID reader
-    rfid.PICC_HaltA();
 }
 
 void processRFID(String uid) {
@@ -118,8 +117,8 @@ void processRFID(String uid) {
     racers[racerIndex].lapTime = currentTime - racers[racerIndex].lastLapTime;
     racers[racerIndex].lastLapTime = currentTime;
 
-    // Play buzzer on lap update
-    playBuzzer();
+    // Activate Buzzer
+    tone(BUZZER_PIN, 1000, 500); // 1kHz tone for 500ms
 
     // Display on LCD
     lcd.clear();
@@ -142,18 +141,60 @@ void processRFID(String uid) {
     Serial.print(",");                 // Separator
     Serial.println(elapsedTime / 1000.0); // Total Elapsed Time (seconds)
 
-    // Check if the racer has completed the race
-    if (racers[racerIndex].lapCount >= totalLaps) {
-        Serial.println("Racer " + uid + " has completed the race!");
+    // Check if all racers have completed their laps
+    if (allRacersFinished()) {
+        lcd.clear();
+        lcd.print("Race Complete!");
+        Serial.println("All Racers Finished!");
+        while (true); // Stop the program
     }
 }
 
-void playBuzzer() {
-    int frequency = 2000; // 2 kHz for better audibility
-    int duration = 500;   // 500 ms
-    tone(BUZZER_PIN, frequency, duration);
-    delay(duration);      // Ensure the buzzer plays the entire duration
-    noTone(BUZZER_PIN);   // Stop the tone
+void handleButtonPress() {
+    if (digitalRead(BUTTON_PIN) == LOW) {
+        if (!buttonHeld) {
+            buttonHeld = true;
+            buttonPressTime = millis();
+        }
+
+        // If button is held for 2 seconds, reset the system
+        if (millis() - buttonPressTime > 2000) {
+            resetSystem();
+        }
+    } else if (buttonHeld) {
+        buttonHeld = false;
+
+        // Short press: Cycle through racers' stats
+        currentRacerIndex++;
+        if (currentRacerIndex >= racerCount) {
+            currentRacerIndex = 0;
+        }
+        displayRacerStats(currentRacerIndex);
+    }
+}
+
+void displayRacerStats(int index) {
+    if (index < racerCount) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Racer: ");
+        lcd.print(racers[index].uid.substring(0, 6));
+        lcd.setCursor(0, 1);
+        lcd.print("Lap: ");
+        lcd.print(racers[index].lapCount);
+        lcd.print("/");
+        lcd.print(totalLaps);
+    }
+}
+
+void resetSystem() {
+    lcd.clear();
+    lcd.print("System Resetting");
+    delay(2000);
+    lcd.clear();
+    racerCount = 0;
+    currentRacerIndex = 0;
+    Serial.println("System Reset");
 }
 
 int findRacer(String uid) {
@@ -165,54 +206,11 @@ int findRacer(String uid) {
     return -1; // Not found
 }
 
-void handleButtonPress() {
-    static unsigned long buttonPressTime = 0;
-
-    // Record the time when the button is first pressed
-    if (!buttonHeld) {
-        buttonPressTime = millis();
-        buttonHeld = true;
+bool allRacersFinished() {
+    for (int i = 0; i < racerCount; i++) {
+        if (racers[i].lapCount < totalLaps) {
+            return false;
+        }
     }
-
-    // If button is held for 2 seconds, reset the system
-    if (millis() - buttonPressTime >= 2000) {
-        resetSystem();
-        return;
-    }
-
-    // If button is pressed briefly, cycle through racers
-    if (millis() - buttonPressTime > 200 && !buttonHeld) {
-        currentRacerIndex = (currentRacerIndex + 1) % racerCount;
-        displayRacerStats(currentRacerIndex);
-        buttonHeld = true;
-    }
-}
-
-void resetSystem() {
-    lcd.clear();
-    lcd.print("System Reset");
-    delay(2000);
-    lcd.clear();
-
-    // Clear racer data
-    racerCount = 0;
-    currentRacerIndex = 0;
-}
-
-void displayRacerStats(int index) {
-    if (index < 0 || index >= racerCount) {
-        return;
-    }
-
-    Racer racer = racers[index];
-
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Racer ");
-    lcd.print(index + 1);
-    lcd.setCursor(0, 1);
-    lcd.print("Lap: ");
-    lcd.print(racer.lapCount);
-    lcd.print("/");
-    lcd.print(totalLaps);
+    return true;
 }
