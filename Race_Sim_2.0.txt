@@ -1,4 +1,6 @@
 #include <LiquidCrystal.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_LEDBackpack.h>
 
 // Pin Definitions for LCD
 #define LCD_RS 4
@@ -10,10 +12,13 @@
 
 // Pin Definitions for Buzzer and Button
 #define BUZZER_PIN 7
-#define BUTTON_PIN 2
+#define BUTTON_PIN 22
 
 // Create LCD object
 LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+
+// Create HT16K33 matrix object
+Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
 
 // Simulated RFID UIDs
 String simulatedRFIDs[] = {
@@ -63,6 +68,11 @@ void setup() {
     // Initialize Buzzer and Button
     pinMode(BUZZER_PIN, OUTPUT);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+    // Initialize HT16K33 matrix
+    matrix.begin(0x70); // Default I2C address
+    matrix.clear();
+    matrix.writeDisplay();
 }
 
 void loop() {
@@ -99,6 +109,7 @@ void processRFID(String uid) {
     if (racerIndex == -1) {
         if (racerCount >= maxRacers) {
             Serial.println("Error: Maximum racers reached!");
+            displayMatrixX();
             return;
         }
 
@@ -131,6 +142,9 @@ void processRFID(String uid) {
     lcd.print("/");
     lcd.print(totalLaps);
 
+    // Display checkmark on the matrix
+    displayMatrixCheck();
+
     // Log to Serial in CSV format: UID, lapCount, lapTime, totalElapsedTime
     unsigned long elapsedTime = currentTime - racers[racerIndex].startTime;
     Serial.print(uid);                 // UID
@@ -145,6 +159,7 @@ void processRFID(String uid) {
     if (allRacersFinished()) {
         lcd.clear();
         lcd.print("Race Complete!");
+        displayMatrixSmile();
         Serial.println("All Racers Finished!");
         while (true); // Stop the program
     }
@@ -157,8 +172,8 @@ void handleButtonPress() {
             buttonPressTime = millis();
         }
 
-        // If button is held for 2 seconds, reset the system
-        if (millis() - buttonPressTime > 2000) {
+        // If button is held for 3 seconds, reset the system
+        if (millis() - buttonPressTime > 3000) {
             resetSystem();
         }
     } else if (buttonHeld) {
@@ -190,6 +205,7 @@ void displayRacerStats(int index) {
 void resetSystem() {
     lcd.clear();
     lcd.print("System Resetting");
+    displayMatrixX();
     delay(2000);
     lcd.clear();
     racerCount = 0;
@@ -214,3 +230,54 @@ bool allRacersFinished() {
     }
     return true;
 }
+
+void displayMatrixCheck() {
+    matrix.clear();
+    matrix.drawBitmap(0, 0, checkBitmap, 8, 8, LED_ON);
+    matrix.writeDisplay();
+}
+
+void displayMatrixX() {
+    matrix.clear();
+    matrix.drawBitmap(0, 0, xBitmap, 8, 8, LED_ON);
+    matrix.writeDisplay();
+}
+
+void displayMatrixSmile() {
+    matrix.clear();
+    matrix.drawBitmap(0, 0, smileBitmap, 8, 8, LED_ON);
+    matrix.writeDisplay();
+}
+
+const uint8_t checkBitmap[] = {
+    0b00000000,
+    0b00000010,
+    0b00000110,
+    0b00001100,
+    0b01111000,
+    0b00110000,
+    0b00000000,
+    0b00000000
+};
+
+const uint8_t xBitmap[] = {
+    0b10000001,
+    0b01000010,
+    0b00100100,
+    0b00011000,
+    0b00011000,
+    0b00100100,
+    0b01000010,
+    0b10000001
+};
+
+const uint8_t smileBitmap[] = {
+    0b00111100,
+    0b01000010,
+    0b10100101,
+    0b10000001,
+    0b10100101,
+    0b10011001,
+    0b01000010,
+    0b00111100
+};
