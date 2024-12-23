@@ -166,7 +166,7 @@ void processRFID(String uid) {
 }
 
 void handleButtonPress() {
-    if (digitalRead(BUTTON_PIN) == LOW) {
+    if (digitalRead(BUTTON_PIN) == HIGH) {
         if (!buttonHeld) {
             buttonHeld = true;
             buttonPressTime = millis();
@@ -231,6 +231,39 @@ bool allRacersFinished() {
     return true;
 }
 
+const uint8_t checkBitmap[] = {
+    0b00000000,
+    0b00000010,
+    0b00000100,
+    0b10001000,
+    0b01010000,
+    0b00100000,
+    0b00000000,
+    0b00000000
+};
+
+const uint8_t xBitmap[] = {
+    0b10000001,
+    0b01000010,
+    0b00100100,
+    0b00011000,
+    0b00011000,
+    0b00100100,
+    0b01000010,
+    0b10000001
+};
+
+const uint8_t smileBitmap[] = {
+    0b00000000,
+    0b01100110,
+    0b01100110,
+    0b00000000,
+    0b01111110,
+    0b00111100,
+    0b00011000,
+    0b00000000
+};
+
 void displayMatrixCheck() {
     matrix.clear();
     matrix.drawBitmap(0, 0, checkBitmap, 8, 8, LED_ON);
@@ -248,36 +281,3 @@ void displayMatrixSmile() {
     matrix.drawBitmap(0, 0, smileBitmap, 8, 8, LED_ON);
     matrix.writeDisplay();
 }
-
-const uint8_t checkBitmap[] = {
-    0b00000000,
-    0b00000010,
-    0b00000110,
-    0b00001100,
-    0b01111000,
-    0b00110000,
-    0b00000000,
-    0b00000000
-};
-
-const uint8_t xBitmap[] = {
-    0b10000001,
-    0b01000010,
-    0b00100100,
-    0b00011000,
-    0b00011000,
-    0b00100100,
-    0b01000010,
-    0b10000001
-};
-
-const uint8_t smileBitmap[] = {
-    0b00111100,
-    0b01000010,
-    0b10100101,
-    0b10000001,
-    0b10100101,
-    0b10011001,
-    0b01000010,
-    0b00111100
-};
