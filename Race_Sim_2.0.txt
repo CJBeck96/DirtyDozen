@@ -28,7 +28,7 @@ String simulatedRFIDs[] = {
 };
 
 const int maxRacers = 10;  // Maximum number of racers
-const int totalLaps = 30;  // Total laps required per racer
+const int totalLaps = 10;  // Total laps required per racer
 
 // Data Structures
 struct Racer {
@@ -45,7 +45,7 @@ int currentRacerIndex = 0;  // For cycling through racers' stats
 
 // Timing for Simulation
 unsigned long lastSimulationTime = 0;
-unsigned long simulationInterval = 20000; // Simulated lap time in milliseconds
+unsigned long simulationInterval = 5000; // Simulated lap time in milliseconds
 int simulatedTagIndex = 0;
 
 // Button State
@@ -67,7 +67,7 @@ void setup() {
 
     // Initialize Buzzer and Button
     pinMode(BUZZER_PIN, OUTPUT);
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    pinMode(22, INPUT_PULLUP);
 
     // Initialize HT16K33 matrix
     matrix.begin(0x70); // Default I2C address
@@ -87,17 +87,24 @@ void simulateRFID() {
     if (millis() - lastSimulationTime > simulationInterval) {
         lastSimulationTime = millis();
 
-        // Get the simulated RFID UID
-        String currentUID = simulatedRFIDs[simulatedTagIndex];
+        // Randomly decide if the scan is good or bad
+        if (random(0, 10) < 7) { // 70% chance for a good scan
+            String currentUID = simulatedRFIDs[simulatedTagIndex];
 
-        // Simulate tag cycling
-        simulatedTagIndex++;
-        if (simulatedTagIndex >= sizeof(simulatedRFIDs) / sizeof(simulatedRFIDs[0])) {
-            simulatedTagIndex = 0; // Loop back to the first tag
+            // Simulate tag cycling
+            simulatedTagIndex++;
+            if (simulatedTagIndex >= sizeof(simulatedRFIDs) / sizeof(simulatedRFIDs[0])) {
+                simulatedTagIndex = 0; // Loop back to the first tag
+            }
+
+            // Process the tag
+            processRFID(currentUID);
+        } else {
+            // Simulate a bad scan
+            Serial.println("Bad Scan Detected!");
+            displayMatrixX();
+            tone(BUZZER_PIN, 400, 500); // Lower tone for bad scan
         }
-
-        // Process the tag
-        processRFID(currentUID);
     }
 }
 
@@ -142,8 +149,8 @@ void processRFID(String uid) {
     lcd.print("/");
     lcd.print(totalLaps);
 
-    // Display checkmark on the matrix
-    displayMatrixCheck();
+    // Display circle on the matrix
+    displayMatrixCircle();
 
     // Log to Serial in CSV format: UID, lapCount, lapTime, totalElapsedTime
     unsigned long elapsedTime = currentTime - racers[racerIndex].startTime;
@@ -231,53 +238,23 @@ bool allRacersFinished() {
     return true;
 }
 
-const uint8_t checkBitmap[] = {
-    0b00000000,
-    0b00000010,
-    0b00000100,
-    0b10001000,
-    0b01010000,
-    0b00100000,
-    0b00000000,
-    0b00000000
-};
-
-const uint8_t xBitmap[] = {
-    0b10000001,
-    0b01000010,
-    0b00100100,
-    0b00011000,
-    0b00011000,
-    0b00100100,
-    0b01000010,
-    0b10000001
-};
-
-const uint8_t smileBitmap[] = {
-    0b00000000,
-    0b01100110,
-    0b01100110,
-    0b00000000,
-    0b01111110,
-    0b00111100,
-    0b00011000,
-    0b00000000
-};
-
-void displayMatrixCheck() {
+void displayMatrixCircle() {
     matrix.clear();
-    matrix.drawBitmap(0, 0, checkBitmap, 8, 8, LED_ON);
+    matrix.drawCircle(3, 3, 3, LED_ON);
     matrix.writeDisplay();
 }
 
 void displayMatrixX() {
     matrix.clear();
-    matrix.drawBitmap(0, 0, xBitmap, 8, 8, LED_ON);
+    matrix.drawLine(0, 0, 7, 7, LED_ON);
+    matrix.drawLine(0, 7, 7, 0, LED_ON);
     matrix.writeDisplay();
 }
 
 void displayMatrixSmile() {
     matrix.clear();
-    matrix.drawBitmap(0, 0, smileBitmap, 8, 8, LED_ON);
+    matrix.drawCircle(3, 3, 3, LED_ON);
+    matrix.drawPixel(2, 2, LED_OFF);
+    matrix.drawPixel(4, 2, LED_OFF);
     matrix.writeDisplay();
 }
