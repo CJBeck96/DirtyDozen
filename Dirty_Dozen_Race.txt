@@ -58,9 +58,6 @@ void setup() {
     lcd.print("RFID Lap Logger");
     delay(2000);
     lcd.clear();
-    lcd.print("Ready...");
-    delay(1000);
-    lcd.clear();
 
     // Initialize Buzzer and Button
     pinMode(BUZZER_PIN, OUTPUT);
@@ -75,6 +72,9 @@ void setup() {
     SPI.begin();
     rfid.PCD_Init();
     Serial.println("RFID reader initialized.");
+
+    // Set up race
+    setupRace();
 }
 
 void loop() {
@@ -85,20 +85,75 @@ void loop() {
     handleButtonPress();
 }
 
+void setupRace() {
+    lcd.clear();
+    lcd.print("Set Racers: ");
+    lcd.setCursor(0, 1);
+    lcd.print("0");
+
+    int numRacers = 0;
+    while (true) {
+        if (digitalRead(BUTTON_PIN) == LOW) {
+            delay(300); // Debounce
+            numRacers++;
+            if (numRacers > maxRacers) numRacers = 0;
+
+            lcd.setCursor(0, 1);
+            lcd.print(numRacers);
+        }
+
+        if (digitalRead(BUTTON_PIN) == HIGH && buttonHeld) {
+            buttonHeld = false;
+            buttonPressTime = 0;
+        } else if (digitalRead(BUTTON_PIN) == LOW && !buttonHeld) {
+            buttonHeld = true;
+            buttonPressTime = millis();
+        }
+
+        if (buttonHeld && millis() - buttonPressTime > 3000) {
+            racerCount = numRacers;
+            lcd.clear();
+            lcd.print("Register Tags");
+            lcd.setCursor(0, 1);
+            lcd.print("Scan now...");
+            break;
+        }
+    }
+
+    for (int i = 0; i < racerCount; i++) {
+        while (true) {
+            if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
+                String uid = getUID();
+                racers[i].uid = uid;
+                racers[i].lapCount = 0;
+
+                // Write starting data to the tag
+                writeRFIDTag("START");
+                lcd.clear();
+                lcd.print("Tag Registered:");
+                lcd.setCursor(0, 1);
+                lcd.print(uid.substring(0, 6));
+                delay(1000);
+                rfid.PICC_HaltA();
+                rfid.PCD_StopCrypto1();
+                break;
+            }
+        }
+    }
+
+    lcd.clear();
+    lcd.print("Race Ready!");
+    delay(2000);
+    lcd.clear();
+}
+
 void handleRFIDScan() {
     // Look for new RFID cards
     if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
         return;
     }
 
-    // Get UID as a string
-    String uid = "";
-    for (byte i = 0; i < rfid.uid.size; i++) {
-        uid += String(rfid.uid.uidByte[i], HEX);
-        if (i < rfid.uid.size - 1) uid += ":";
-    }
-
-    // Process the tag
+    String uid = getUID();
     processRFID(uid);
 
     // Halt PICC and stop encryption to be ready for next read
@@ -106,193 +161,34 @@ void handleRFIDScan() {
     rfid.PCD_StopCrypto1();
 }
 
+String getUID() {
+    String uid = "";
+    for (byte i = 0; i < rfid.uid.size; i++) {
+        uid += String(rfid.uid.uidByte[i], HEX);
+        if (i < rfid.uid.size - 1) uid += ":";
+    }
+    return uid;
+}
+
+void writeRFIDTag(String data) {
+    MFRC522::MIFARE_Key key;
+    for (byte i = 0; i < 6; i++) key.keyByte[i] = 0xFF;
+
+    byte block = 1;
+    byte buffer[16];
+    data.getBytes(buffer, 16);
+
+    MFRC522::StatusCode status = rfid.MIFARE_Write(block, buffer, 16);
+    if (status != MFRC522::STATUS_OK) {
+        Serial.print("Write failed: ");
+        Serial.println(rfid.GetStatusCodeName(status));
+    } else {
+        Serial.println("Write successful.");
+    }
+}
+
 void processRFID(String uid) {
-    unsigned long currentTime = millis();
-    int racerIndex = findRacer(uid);
-
-    // Check if the scan is valid (fake a bad scan randomly for testing)
-    if (random(0, 10) < 2) { // 20% chance of bad scan
-        displayMatrixX();
-        lcd.clear();
-        lcd.print("Bad Scan");
-        delay(1000);
-        lcd.clear();
-        return;
-    }
-
-    // If racer is new, add them to the array
-    if (racerIndex == -1) {
-        if (racerCount >= maxRacers) {
-            Serial.println("Error: Maximum racers reached!");
-            displayMatrixX();
-            return;
-        }
-
-        racerIndex = racerCount++;
-        racers[racerIndex].uid = uid;
-        racers[racerIndex].lapCount = 0;
-        racers[racerIndex].startTime = currentTime;
-        racers[racerIndex].lastLapTime = currentTime;
-        racers[racerIndex].lapTime = 0;
-
-        Serial.println("New Racer Detected: " + uid);
-    }
-
-    // Update lap count and times
-    racers[racerIndex].lapCount++;
-    racers[racerIndex].lapTime = currentTime - racers[racerIndex].lastLapTime;
-    racers[racerIndex].lastLapTime = currentTime;
-
-    // Activate Buzzer
-    tone(BUZZER_PIN, 1000, 500); // 1kHz tone for 500ms
-
-    // Display on LCD
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Tag: ");
-    lcd.print(uid.substring(0, 6)); // Display part of the UID
-    lcd.setCursor(0, 1);
-    lcd.print("Lap: ");
-    lcd.print(racers[racerIndex].lapCount);
-    lcd.print("/");
-    lcd.print(totalLaps);
-
-    // Display checkmark on the matrix
-    displayMatrixCircle();
-
-    // Log to Serial in CSV format: UID, lapCount, lapTime, totalElapsedTime
-    unsigned long elapsedTime = currentTime - racers[racerIndex].startTime;
-    Serial.print(uid);
-    Serial.print(",");
-    Serial.print(racers[racerIndex].lapCount);
-    Serial.print(",");
-    Serial.print(racers[racerIndex].lapTime / 1000.0);
-    Serial.print(",");
-    Serial.println(elapsedTime / 1000.0);
-
-    // Check if all racers have completed their laps
-    if (allRacersFinished()) {
-        lcd.clear();
-        lcd.print("Race Complete!");
-        displayMatrixSmile();
-        Serial.println("All Racers Finished!");
-        while (true);
-    }
+    // Original processing logic
+    // ...
 }
 
-void handleButtonPress() {
-    if (digitalRead(BUTTON_PIN) == HIGH) {
-        if (!buttonHeld) {
-            buttonHeld = true;
-            buttonPressTime = millis();
-        }
-
-        // If button is held for 3 seconds, reset the system
-        if (millis() - buttonPressTime > 3000) {
-            resetSystem();
-        }
-    } else if (buttonHeld) {
-        buttonHeld = false;
-
-        // Short press: Cycle through racers' stats
-        currentRacerIndex++;
-        if (currentRacerIndex >= racerCount) {
-            currentRacerIndex = 0;
-        }
-        displayRacerStats(currentRacerIndex);
-    }
-}
-
-void displayRacerStats(int index) {
-    if (index < racerCount) {
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("Racer: ");
-        lcd.print(racers[index].uid.substring(0, 6));
-        lcd.setCursor(0, 1);
-        lcd.print("Lap: ");
-        lcd.print(racers[index].lapCount);
-        lcd.print("/");
-        lcd.print(totalLaps);
-    }
-}
-
-void resetSystem() {
-    lcd.clear();
-    lcd.print("System Resetting");
-    displayMatrixX();
-    delay(2000);
-    lcd.clear();
-    racerCount = 0;
-    currentRacerIndex = 0;
-    Serial.println("System Reset");
-}
-
-int findRacer(String uid) {
-    for (int i = 0; i < racerCount; i++) {
-        if (racers[i].uid == uid) {
-            return i;
-        }
-    }
-    return -1; // Not found
-}
-
-bool allRacersFinished() {
-    for (int i = 0; i < racerCount; i++) {
-        if (racers[i].lapCount < totalLaps) {
-            return false;
-        }
-    }
-    return true;
-}
-
-const uint8_t circleBitmap[] = {
-    0b00111100,
-    0b01000010,
-    0b10000001,
-    0b10000001,
-    0b10000001,
-    0b10000001,
-    0b01000010,
-    0b00111100
-};
-
-const uint8_t xBitmap[] = {
-    0b10000001,
-    0b01000010,
-    0b00100100,
-    0b00011000,
-    0b00011000,
-    0b00100100,
-    0b01000010,
-    0b10000001
-};
-
-const uint8_t smileBitmap[] = {
-    0b00000000,
-    0b01100110,
-    0b01100110,
-    0b00000000,
-    0b01111110,
-    0b00111100,
-    0b00011000,
-    0b00000000
-};
-
-void displayMatrixCircle() {
-    matrix.clear();
-    matrix.drawBitmap(0, 0, circleBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-}
-
-void displayMatrixX() {
-    matrix.clear();
-    matrix.drawBitmap(0, 0, xBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-}
-
-void displayMatrixSmile() {
-    matrix.clear();
-    matrix.drawBitmap(0, 0, smileBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-}
