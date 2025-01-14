@@ -4,7 +4,7 @@
 // Create HT16K33 matrix object
 Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
 
-// Corrected bitmaps based on lower-left (0,0) origin and upward column mapping
+// Corrected bitmaps
 const uint8_t circleBitmap[] = {
     0b00111100,
     0b01000010,
@@ -41,6 +41,10 @@ const uint8_t smileBitmap[] = {
 void setup() {
     // Initialize the LED matrix
     matrix.begin(0x70); // Default I2C address
+
+    // Set the matrix rotation based on physical orientation
+    matrix.setRotation(2); // Adjust this value (0, 1, 2, 3) to match your matrix orientation
+
     matrix.clear();
     matrix.writeDisplay();
 }
