@@ -49,20 +49,7 @@ int currentRacerIndex = 0;  // For cycling through racers' stats
 unsigned long buttonPressTime = 0;
 bool buttonHeld = false;
 
-// Function Prototypes
-void handleRFIDScan();
-void handleButtonPress();
-void processRFID(String uid);
-void displayRacerStats(int index);
-void resetSystem();
-int findRacer(String uid);
-bool allRacersFinished();
-void displayMatrixCircle();
-void displayMatrixX();
-void displayMatrixSmile();
-
 void setup() {
-    // Initialize Serial
     Serial.begin(9600);
 
     // Initialize LCD
@@ -98,22 +85,17 @@ void loop() {
 }
 
 void handleRFIDScan() {
-    // Look for new RFID cards
     if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
         return;
     }
 
-    // Get UID as a string
     String uid = "";
     for (byte i = 0; i < rfid.uid.size; i++) {
         uid += String(rfid.uid.uidByte[i], HEX);
         if (i < rfid.uid.size - 1) uid += ":";
     }
 
-    // Process the tag
     processRFID(uid);
-
-    // Halt PICC and stop encryption to be ready for next read
     rfid.PICC_HaltA();
     rfid.PCD_StopCrypto1();
 }
@@ -122,17 +104,6 @@ void processRFID(String uid) {
     unsigned long currentTime = millis();
     int racerIndex = findRacer(uid);
 
-    // Check if the scan is valid (fake a bad scan randomly for testing)
-    if (random(0, 10) < 2) { // 20% chance of bad scan
-        displayMatrixX();
-        lcd.clear();
-        lcd.print("Bad Scan");
-        delay(1000);
-        lcd.clear();
-        return;
-    }
-
-    // If racer is new, add them to the array
     if (racerIndex == -1) {
         if (racerCount >= maxRacers) {
             Serial.println("Error: Maximum racers reached!");
@@ -150,29 +121,24 @@ void processRFID(String uid) {
         Serial.println("New Racer Detected: " + uid);
     }
 
-    // Update lap count and times
     racers[racerIndex].lapCount++;
     racers[racerIndex].lapTime = currentTime - racers[racerIndex].lastLapTime;
     racers[racerIndex].lastLapTime = currentTime;
 
-    // Activate Buzzer
-    tone(BUZZER_PIN, 1000, 500); // 1kHz tone for 500ms
+    tone(BUZZER_PIN, 1000, 500);
 
-    // Display on LCD
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Tag: ");
-    lcd.print(uid.substring(0, 6)); // Display part of the UID
+    lcd.print(uid.substring(0, 6));
     lcd.setCursor(0, 1);
     lcd.print("Lap: ");
     lcd.print(racers[racerIndex].lapCount);
     lcd.print("/");
     lcd.print(totalLaps);
 
-    // Display checkmark on the matrix
     displayMatrixCircle();
 
-    // Log to Serial in CSV format: UID, lapCount, lapTime, totalElapsedTime
     unsigned long elapsedTime = currentTime - racers[racerIndex].startTime;
     Serial.print(uid);
     Serial.print(",");
@@ -182,7 +148,6 @@ void processRFID(String uid) {
     Serial.print(",");
     Serial.println(elapsedTime / 1000.0);
 
-    // Check if all racers have completed their laps
     if (allRacersFinished()) {
         lcd.clear();
         lcd.print("Race Complete!");
@@ -199,14 +164,12 @@ void handleButtonPress() {
             buttonPressTime = millis();
         }
 
-        // If button is held for 3 seconds, reset the system
         if (millis() - buttonPressTime > 3000) {
             resetSystem();
         }
     } else if (buttonHeld) {
         buttonHeld = false;
 
-        // Short press: Cycle through racers' stats
         currentRacerIndex++;
         if (currentRacerIndex >= racerCount) {
             currentRacerIndex = 0;
@@ -246,7 +209,7 @@ int findRacer(String uid) {
             return i;
         }
     }
-    return -1; // Not found
+    return -1;
 }
 
 bool allRacersFinished() {
@@ -258,15 +221,16 @@ bool allRacersFinished() {
     return true;
 }
 
+// Corrected Bitmaps
 const uint8_t circleBitmap[] = {
-    0b00111100,
-    0b01000010,
-    0b10000001,
-    0b10000001,
-    0b10000001,
     0b10000001,
     0b01000010,
-    0b00111100
+    0b00100100,
+    0b00011000,
+    0b00011000,
+    0b00100100,
+    0b01000010,
+    0b10000001
 };
 
 const uint8_t xBitmap[] = {
