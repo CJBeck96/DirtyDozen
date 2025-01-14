@@ -1,89 +1,25 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_LEDBackpack.h>
 
-// Create HT16K33 matrix object
 Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
 
-// Define bitmaps for testing
-const uint8_t circleBitmap[] = {
-    0b00000000,
-    0b00111100,
-    0b01000010,
-    0b10000001,
-    0b10000001,
-    0b01000010,
-    0b00111100,
-    0b00000000
-};
-
-const uint8_t xBitmap[] = {
-    0b10000001,
-    0b01000010,
-    0b00100100,
-    0b00011000,
-    0b00011000,
-    0b00100100,
-    0b01000010,
-    0b10000001
-};
-
-const uint8_t smileBitmap[] = {
-    0b00000000,
-    0b01100110,
-    0b01100110,
-    0b00000000,
-    0b00011000,
-    0b01111110,
-    0b00000000,
-    0b00000000
-};
-
 void setup() {
-    // Initialize Serial Monitor
     Serial.begin(9600);
-    Serial.println("Matrix Test Starting...");
-
-    // Initialize the matrix
     matrix.begin(0x70); // Default I2C address
     matrix.clear();
     matrix.writeDisplay();
-    Serial.println("Matrix Initialized.");
+    Serial.println("Testing Individual Pixels...");
+
+    // Turn on pixels one by one
+    for (int y = 0; y < 8; y++) {
+        for (int x = 0; x < 8; x++) {
+            matrix.clear();
+            matrix.drawPixel(x, y, LED_ON);
+            matrix.writeDisplay();
+            delay(250); // Delay for visibility
+        }
+    }
+    Serial.println("Pixel Test Complete.");
 }
 
-void loop() {
-    // Test Circle
-    Serial.println("Displaying Circle...");
-    displayMatrixCircle();
-    delay(2000);
-
-    // Test X
-    Serial.println("Displaying X...");
-    displayMatrixX();
-    delay(2000);
-
-    // Test Smile
-    Serial.println("Displaying Smile...");
-    displayMatrixSmile();
-    delay(2000);
-}
-
-// Function to display the Circle
-void displayMatrixCircle() {
-    matrix.clear();
-    matrix.drawBitmap(0, 0, circleBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-}
-
-// Function to display the X
-void displayMatrixX() {
-    matrix.clear();
-    matrix.drawBitmap(0, 0, xBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-}
-
-// Function to display the Smile
-void displayMatrixSmile() {
-    matrix.clear();
-    matrix.drawBitmap(0, 0, smileBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-}
+void loop() {}
