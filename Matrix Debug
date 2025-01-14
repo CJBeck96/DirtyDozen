@@ -1,0 +1,297 @@
+#include <LiquidCrystal.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_LEDBackpack.h>
+#include <MFRC522.h>
+#include <SPI.h>
+
+// Pin Definitions for LCD
+#define LCD_RS 4
+#define LCD_E 6
+#define LCD_D4 10
+#define LCD_D5 11
+#define LCD_D6 12
+#define LCD_D7 13
+
+// Pin Definitions for RFID
+#define RST_PIN 9
+#define SS_PIN 53
+
+// Pin Definitions for Buzzer and Button
+#define BUZZER_PIN 7
+#define BUTTON_PIN 22
+
+// Create LCD object
+LiquidCrystal lcd(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
+
+// Create HT16K33 matrix object
+Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
+
+// Create RFID reader object
+MFRC522 rfid(SS_PIN, RST_PIN);
+
+const int maxRacers = 10;  // Maximum number of racers
+const int totalLaps = 30;  // Total laps required per racer
+
+// Data Structures
+struct Racer {
+    String uid;
+    int lapCount;
+    unsigned long startTime;
+    unsigned long lastLapTime;
+    unsigned long lapTime;
+};
+
+Racer racers[maxRacers];
+int racerCount = 0;
+int currentRacerIndex = 0;  // For cycling through racers' stats
+
+// Button State
+unsigned long buttonPressTime = 0;
+bool buttonHeld = false;
+
+void setup() {
+    // Initialize Serial
+    Serial.begin(9600);
+
+    // Initialize LCD
+    lcd.begin(16, 2);
+    lcd.print("RFID Lap Logger");
+    delay(2000);
+    lcd.clear();
+    lcd.print("Ready...");
+    delay(1000);
+    lcd.clear();
+
+    // Initialize Buzzer and Button
+    pinMode(BUZZER_PIN, OUTPUT);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+    // Initialize HT16K33 matrix
+    Serial.println("Initializing matrix...");
+    if (!matrix.begin(0x70)) { // Default I2C address
+        Serial.println("Matrix failed to initialize! Check connections.");
+    } else {
+        Serial.println("Matrix initialized successfully.");
+        matrix.clear();
+        matrix.setBrightness(15); // Set maximum brightness
+        matrix.writeDisplay();
+    }
+
+    // Initialize RFID reader
+    SPI.begin();
+    rfid.PCD_Init();
+    Serial.println("RFID reader initialized.");
+}
+
+void loop() {
+    // Handle RFID Scans
+    handleRFIDScan();
+
+    // Handle Button Press
+    handleButtonPress();
+}
+
+void handleRFIDScan() {
+    // Look for new RFID cards
+    if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) {
+        return;
+    }
+
+    // Get UID as a string
+    String uid = "";
+    for (byte i = 0; i < rfid.uid.size; i++) {
+        uid += String(rfid.uid.uidByte[i], HEX);
+        if (i < rfid.uid.size - 1) uid += ":";
+    }
+
+    // Process the tag
+    processRFID(uid);
+
+    // Halt PICC and stop encryption to be ready for next read
+    rfid.PICC_HaltA();
+    rfid.PCD_StopCrypto1();
+}
+
+void processRFID(String uid) {
+    unsigned long currentTime = millis();
+    int racerIndex = findRacer(uid);
+
+    // If racer is new, add them to the array
+    if (racerIndex == -1) {
+        if (racerCount >= maxRacers) {
+            Serial.println("Error: Maximum racers reached!");
+            displayMatrixX();
+            return;
+        }
+
+        racerIndex = racerCount++;
+        racers[racerIndex].uid = uid;
+        racers[racerIndex].lapCount = 0;
+        racers[racerIndex].startTime = currentTime;
+        racers[racerIndex].lastLapTime = currentTime;
+        racers[racerIndex].lapTime = 0;
+
+        Serial.println("New Racer Detected: " + uid);
+    }
+
+    // Update lap count and times
+    racers[racerIndex].lapCount++;
+    racers[racerIndex].lapTime = currentTime - racers[racerIndex].lastLapTime;
+    racers[racerIndex].lastLapTime = currentTime;
+
+    // Activate Buzzer
+    tone(BUZZER_PIN, 1000, 500); // 1kHz tone for 500ms
+
+    // Display on LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Tag: ");
+    lcd.print(uid.substring(0, 6)); // Display part of the UID
+    lcd.setCursor(0, 1);
+    lcd.print("Lap: ");
+    lcd.print(racers[racerIndex].lapCount);
+    lcd.print("/");
+    lcd.print(totalLaps);
+
+    // Display checkmark on the matrix
+    displayMatrixCircle();
+
+    // Log to Serial in CSV format: UID, lapCount, lapTime, totalElapsedTime
+    unsigned long elapsedTime = currentTime - racers[racerIndex].startTime;
+    Serial.print(uid);
+    Serial.print(",");
+    Serial.print(racers[racerIndex].lapCount);
+    Serial.print(",");
+    Serial.print(racers[racerIndex].lapTime / 1000.0);
+    Serial.print(",");
+    Serial.println(elapsedTime / 1000.0);
+
+    // Check if all racers have completed their laps
+    if (allRacersFinished()) {
+        lcd.clear();
+        lcd.print("Race Complete!");
+        displayMatrixSmile();
+        Serial.println("All Racers Finished!");
+        while (true);
+    }
+}
+
+void handleButtonPress() {
+    if (digitalRead(BUTTON_PIN) == HIGH) {
+        if (!buttonHeld) {
+            buttonHeld = true;
+            buttonPressTime = millis();
+        }
+
+        // If button is held for 3 seconds, reset the system
+        if (millis() - buttonPressTime > 3000) {
+            resetSystem();
+        }
+    } else if (buttonHeld) {
+        buttonHeld = false;
+
+        // Short press: Cycle through racers' stats
+        currentRacerIndex++;
+        if (currentRacerIndex >= racerCount) {
+            currentRacerIndex = 0;
+        }
+        displayRacerStats(currentRacerIndex);
+    }
+}
+
+void displayRacerStats(int index) {
+    if (index < racerCount) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("Racer: ");
+        lcd.print(racers[index].uid.substring(0, 6));
+        lcd.setCursor(0, 1);
+        lcd.print("Lap: ");
+        lcd.print(racers[index].lapCount);
+        lcd.print("/");
+        lcd.print(totalLaps);
+    }
+}
+
+void resetSystem() {
+    lcd.clear();
+    lcd.print("System Resetting");
+    displayMatrixX();
+    delay(2000);
+    lcd.clear();
+    racerCount = 0;
+    currentRacerIndex = 0;
+    Serial.println("System Reset");
+}
+
+int findRacer(String uid) {
+    for (int i = 0; i < racerCount; i++) {
+        if (racers[i].uid == uid) {
+            return i;
+        }
+    }
+    return -1; // Not found
+}
+
+bool allRacersFinished() {
+    for (int i = 0; i < racerCount; i++) {
+        if (racers[i].lapCount < totalLaps) {
+            return false;
+        }
+    }
+    return true;
+}
+
+const uint8_t circleBitmap[] = {
+    0b00111100,
+    0b01000010,
+    0b10000001,
+    0b10000001,
+    0b10000001,
+    0b10000001,
+    0b01000010,
+    0b00111100
+};
+
+const uint8_t xBitmap[] = {
+    0b10000001,
+    0b01000010,
+    0b00100100,
+    0b00011000,
+    0b00011000,
+    0b00100100,
+    0b01000010,
+    0b10000001
+};
+
+const uint8_t smileBitmap[] = {
+    0b00000000,
+    0b01100110,
+    0b01100110,
+    0b00000000,
+    0b01111110,
+    0b00111100,
+    0b00011000,
+    0b00000000
+};
+
+void displayMatrixCircle() {
+    matrix.clear();
+    matrix.drawBitmap(0, 0, circleBitmap, 8, 8, LED_ON);
+    matrix.writeDisplay();
+    Serial.println("Displayed: Circle");
+}
+
+void displayMatrixX() {
+    matrix.clear();
+    matrix.drawBitmap(0, 0, xBitmap, 8, 8, LED_ON);
+    matrix.writeDisplay();
+    Serial.println("Displayed: X");
+}
+
+void displayMatrixSmile() {
+    matrix.clear();
+    matrix.drawBitmap(0, 0, smileBitmap, 8, 8, LED_ON);
+    matrix.writeDisplay();
+    Serial.println("Displayed: Smile");
+}
