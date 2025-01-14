@@ -4,69 +4,29 @@
 // Create HT16K33 matrix object
 Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
 
-// Corrected bitmaps
+// Transposed circle bitmap based on lower-left origin and upward column mapping
 const uint8_t circleBitmap[] = {
-    0b00111100,
-    0b01000010,
-    0b10000001,
-    0b10000001,
-    0b10000001,
-    0b10000001,
-    0b01000010,
-    0b00111100
-};
-
-const uint8_t xBitmap[] = {
-    0b10000001,
-    0b01000010,
-    0b00100100,
-    0b00011000,
-    0b00011000,
-    0b00100100,
-    0b01000010,
-    0b10000001
-};
-
-const uint8_t smileBitmap[] = {
-    0b00000000,
-    0b01100110,
-    0b01100110,
-    0b00000000,
-    0b01111110,
-    0b00111100,
-    0b00011000,
-    0b00000000
+    0b00011000, // Column 0
+    0b00100100, // Column 1
+    0b01000010, // Column 2
+    0b10000001, // Column 3
+    0b10000001, // Column 4
+    0b01000010, // Column 5
+    0b00100100, // Column 6
+    0b00011000  // Column 7
 };
 
 void setup() {
     // Initialize the LED matrix
     matrix.begin(0x70); // Default I2C address
-
-    // Set the matrix rotation based on physical orientation
-    matrix.setRotation(2); // Adjust this value (0, 1, 2, 3) to match your matrix orientation
-
     matrix.clear();
     matrix.writeDisplay();
 }
 
 void loop() {
-    // Display each shape in sequence
-
-    // Display circle
+    // Test the corrected circle shape
     matrix.clear();
     matrix.drawBitmap(0, 0, circleBitmap, 8, 8, LED_ON);
     matrix.writeDisplay();
-    delay(2000);
-
-    // Display X
-    matrix.clear();
-    matrix.drawBitmap(0, 0, xBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-    delay(2000);
-
-    // Display smile
-    matrix.clear();
-    matrix.drawBitmap(0, 0, smileBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-    delay(2000);
+    delay(5000); // Display the circle for 5 seconds
 }
