@@ -4,6 +4,18 @@
 // Create HT16K33 matrix object
 Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
 
+// Corrected circle bitmap (column-major order)
+const uint8_t circleBitmap[] = {
+    0b00011000, // Column 0
+    0b00100100, // Column 1
+    0b01000010, // Column 2
+    0b10000001, // Column 3
+    0b10000001, // Column 4
+    0b01000010, // Column 5
+    0b00100100, // Column 6
+    0b00011000  // Column 7
+};
+
 void setup() {
     // Initialize the LED matrix
     matrix.begin(0x70); // Default I2C address
@@ -12,16 +24,9 @@ void setup() {
 }
 
 void loop() {
-    // Test each column, lighting up one LED at a time
-    for (int col = 0; col < 8; col++) {
-        matrix.clear();
-        for (int row = 0; row < 8; row++) {
-            matrix.drawPixel(col, row, LED_ON);
-            matrix.writeDisplay();
-            delay(200);
-        }
-    }
-
-    // Pause and repeat
-    delay(2000);
+    // Display the corrected circle shape
+    matrix.clear();
+    matrix.drawBitmap(0, 0, circleBitmap, 8, 8, LED_ON);
+    matrix.writeDisplay();
+    delay(5000); // Display the shape for 5 seconds
 }
