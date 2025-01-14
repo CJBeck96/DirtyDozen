@@ -1,32 +1,49 @@
+#include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_LEDBackpack.h>
+#include <Adafruit_HT16K33.h>
 
-// Create HT16K33 matrix object
-Adafruit_8x8matrix matrix = Adafruit_8x8matrix();
-
-// Corrected circle bitmap (column-major order)
-const uint8_t circleBitmap[] = {
-    0b00011000, // Column 0
-    0b00100100, // Column 1
-    0b01000010, // Column 2
-    0b10000001, // Column 3
-    0b10000001, // Column 4
-    0b01000010, // Column 5
-    0b00100100, // Column 6
-    0b00011000  // Column 7
-};
+Adafruit_HT16K33 matrix = Adafruit_HT16K33();
 
 void setup() {
-    // Initialize the LED matrix
-    matrix.begin(0x70); // Default I2C address
-    matrix.clear();
-    matrix.writeDisplay();
+  // Initialize the matrix
+  if (!matrix.begin()) {
+    Serial.println("Couldn't find the matrix");
+    while (1);
+  }
+
+  // Clear the display at the beginning
+  matrix.clear();
+  matrix.writeDisplay();
 }
 
 void loop() {
-    // Display the corrected circle shape
-    matrix.clear();
-    matrix.drawBitmap(0, 0, circleBitmap, 8, 8, LED_ON);
-    matrix.writeDisplay();
-    delay(5000); // Display the shape for 5 seconds
+  // Draw a line from (0,0) to (7,7)
+  matrix.clear();
+  matrix.drawLine(0, 0, 7, 7, LED_ON);
+  matrix.writeDisplay();
+  delay(1000);
+
+  // Draw a square (top-left corner (2,2), bottom-right corner (5,5))
+  matrix.clear();
+  matrix.drawRect(2, 2, 4, 4, LED_ON);
+  matrix.writeDisplay();
+  delay(1000);
+
+  // Draw a circle with center (3,3) and radius 3
+  matrix.clear();
+  matrix.drawCircle(3, 3, 3, LED_ON);
+  matrix.writeDisplay();
+  delay(1000);
+  
+  // Draw a filled rectangle (top-left corner (1,1), bottom-right corner (6,6))
+  matrix.clear();
+  matrix.fillRect(1, 1, 6, 6, LED_ON);
+  matrix.writeDisplay();
+  delay(1000);
+
+  // Draw a filled circle with center (3,3) and radius 2
+  matrix.clear();
+  matrix.fillCircle(3, 3, 2, LED_ON);
+  matrix.writeDisplay();
+  delay(1000);
 }
